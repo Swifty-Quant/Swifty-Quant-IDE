@@ -9,14 +9,16 @@ assignees: ''
 
 # Title - RESEARCH
 
-## Description
+---
 
-## Motivation
+### Description
 
-## Steps to achieve this research goal
+### Motivation
+
+### Steps to achieve this research goal
 
 1. Step 1
 2. Step 2
 3. Step 3
 
-## Alternative Solutions
+### Alternative Solutions
