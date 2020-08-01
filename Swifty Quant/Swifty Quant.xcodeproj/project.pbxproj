@@ -14,6 +14,9 @@
 		A553B33524CF5D5C00D39DF1 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A553B33324CF5D5C00D39DF1 /* Main.storyboard */; };
 		A553B34124CF5D5C00D39DF1 /* Swifty_QuantTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A553B34024CF5D5C00D39DF1 /* Swifty_QuantTests.swift */; };
 		A553B34C24CF5D5C00D39DF1 /* Swifty_QuantUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A553B34B24CF5D5C00D39DF1 /* Swifty_QuantUITests.swift */; };
+		A562A34C24D5A5F300AE8DE2 /* BitfinexShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = A562A34824D5A5F300AE8DE2 /* BitfinexShared.swift */; };
+		A562A34D24D5A5F300AE8DE2 /* BitfinexViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A562A34924D5A5F300AE8DE2 /* BitfinexViewController.swift */; };
+		A562A34E24D5A5F300AE8DE2 /* BitfinexConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A562A34B24D5A5F300AE8DE2 /* BitfinexConnection.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -48,6 +51,9 @@
 		A553B34724CF5D5C00D39DF1 /* Swifty QuantUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Swifty QuantUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A553B34B24CF5D5C00D39DF1 /* Swifty_QuantUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Swifty_QuantUITests.swift; sourceTree = "<group>"; };
 		A553B34D24CF5D5C00D39DF1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A562A34824D5A5F300AE8DE2 /* BitfinexShared.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BitfinexShared.swift; sourceTree = "<group>"; };
+		A562A34924D5A5F300AE8DE2 /* BitfinexViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BitfinexViewController.swift; sourceTree = "<group>"; };
+		A562A34B24D5A5F300AE8DE2 /* BitfinexConnection.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BitfinexConnection.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -98,6 +104,7 @@
 		A553B32924CF5D5B00D39DF1 /* Swifty Quant */ = {
 			isa = PBXGroup;
 			children = (
+				A562A34624D5A5F300AE8DE2 /* Client */,
 				A553B32A24CF5D5B00D39DF1 /* AppDelegate.swift */,
 				A553B32C24CF5D5B00D39DF1 /* ContentView.swift */,
 				A553B32E24CF5D5C00D39DF1 /* Assets.xcassets */,
@@ -133,6 +140,32 @@
 				A553B34D24CF5D5C00D39DF1 /* Info.plist */,
 			);
 			path = "Swifty QuantUITests";
+			sourceTree = "<group>";
+		};
+		A562A34624D5A5F300AE8DE2 /* Client */ = {
+			isa = PBXGroup;
+			children = (
+				A562A34724D5A5F300AE8DE2 /* Bitfinex */,
+				A562A34A24D5A5F300AE8DE2 /* Networking */,
+			);
+			path = Client;
+			sourceTree = "<group>";
+		};
+		A562A34724D5A5F300AE8DE2 /* Bitfinex */ = {
+			isa = PBXGroup;
+			children = (
+				A562A34824D5A5F300AE8DE2 /* BitfinexShared.swift */,
+				A562A34924D5A5F300AE8DE2 /* BitfinexViewController.swift */,
+			);
+			path = Bitfinex;
+			sourceTree = "<group>";
+		};
+		A562A34A24D5A5F300AE8DE2 /* Networking */ = {
+			isa = PBXGroup;
+			children = (
+				A562A34B24D5A5F300AE8DE2 /* BitfinexConnection.swift */,
+			);
+			path = Networking;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -266,8 +299,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A562A34E24D5A5F300AE8DE2 /* BitfinexConnection.swift in Sources */,
 				A553B32D24CF5D5B00D39DF1 /* ContentView.swift in Sources */,
 				A553B32B24CF5D5B00D39DF1 /* AppDelegate.swift in Sources */,
+				A562A34C24D5A5F300AE8DE2 /* BitfinexShared.swift in Sources */,
+				A562A34D24D5A5F300AE8DE2 /* BitfinexViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
