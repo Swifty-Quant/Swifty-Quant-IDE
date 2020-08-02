@@ -8,7 +8,6 @@
 
 import Foundation
 import Network
-import CryptoKit
 
 
 protocol BitfinexConnectionDelegate : class
@@ -72,9 +71,7 @@ class BitfinexConnection
             }, queue
         )
         
-        guard let url = URL(string: "http://api.bitfinex.com:443/v2/tickers?symbols=ALL") else { return }
-        
-        let endpoint = NWEndpoint.url(url)
+        let endpoint = NWEndpoint.hostPort(host: "api.bitfinex.com", port: 443)
         
         let parameters = NWParameters(tls: tlsOptions, tcp: options)
         let conn = NWConnection(to: endpoint, using: parameters)
@@ -105,7 +102,7 @@ class BitfinexConnection
         {
             return
         }
-    
+
         connection.stateUpdateHandler = { newState in
             switch newState
             {
@@ -155,19 +152,17 @@ class BitfinexConnection
         {
             return
         }
-        
-        if let data = try? self.prepareWebSocket()
-        {
-            connection.send(content: data, completion: .idempotent)
-        }
 
         connection.receiveMessage
         {
             (content, context, isComplete, error) in
             
-            if let content = content
+            if let content = content,
+                let message = String(data: content, encoding: .utf8),
+                let delegate = self.delegate
             {
-                print("Received:", String(data: content, encoding: .utf8) as Any)
+                delegate.receivedMessage(content: content,
+                                         message: message)
             }
             
             if error == nil
@@ -176,34 +171,6 @@ class BitfinexConnection
                 self.receiveNextMessage()
             }
         }
-    }
-    
-    
-    private func prepareWebSocket() throws -> Data
-    {
-        let apiKey    = ""
-        let apiSecret = ""
-        let authNonce = NonceProvider.sharedInstanse.nonce
-        let authPayload = "AUTH\(authNonce)"
-        
-        
-        let authenticationKey  = SymmetricKey(data: apiSecret.data(using: .ascii)!)
-        let authenticationCode = HMAC<SHA384>.authenticationCode(for: authPayload.data(using: .ascii)!,
-                                                                 using: authenticationKey
-        )
-        
-        let authSig = authenticationCode.compactMap { String(format: "%02hhx", $0) }.joined()
-        
-        let payload: [String : Any] =
-        [
-            "event":       "auth",
-            "apiKey" :     apiKey,
-            "authSig":     authSig,
-            "authPayload": authPayload,
-            "authNonce":   authNonce
-        ]
-
-        return try JSONSerialization.data(withJSONObject: payload, options: .fragmentsAllowed)
     }
 
 }
