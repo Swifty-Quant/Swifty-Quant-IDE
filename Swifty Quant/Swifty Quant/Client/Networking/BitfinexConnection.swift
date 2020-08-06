@@ -8,169 +8,205 @@
 
 import Foundation
 import Network
+import CryptoKit
 
 
-protocol BitfinexConnectionDelegate : class
+class BitfinexConnection : NSObject, WebSocketConnection, URLSessionWebSocketDelegate
 {
-    func connectionReady()
-    func connectionFailed()
-    func receivedMessage(content: Data?, message: NWProtocolFramer.Message)
-    func displayAdvertiseError(_ error: NWError)
-}
-
-class BitfinexConnection
-{
-    weak var delegate: BitfinexConnectionDelegate?
+    weak var delegate: WebSocketConnectionDelegate?
     
-    private let queue = DispatchQueue(label: "ai.hinton.bitfinex.networkstream", attributes: [])
+    var webSocketTask: URLSessionWebSocketTask!
+    var urlSession:    URLSession!
     
-    var connection:          NWConnection?
-    var initiatedConnection: Bool
+    let delegateQueue = OperationQueue()
     
-    /**
-        Initializes a new BitfinexConnection when the user supplies their API Key and Secret Key.
-
-        - parameter endpoint:  The endpoint of the channel
-        - parameter interface: The interface that this channel is relevant to
-        - parameter passcode:  A passcode the user enters to secure the Bitfinex API key.
-
-        - returns: A new BitfinexConnection instance
-    */
-    init(delegate: BitfinexConnectionDelegate)
+    private var pingTimer: Timer?
+    
+    init(url: URL, autoConnect: Bool = false)
     {
-        self.delegate            = delegate
-        self.initiatedConnection = false
-
-        let host = "api.bitfinex.com"
+        super.init()
         
-        let options = NWProtocolTCP.Options()
-        options.connectionTimeout = 15
+        urlSession    = URLSession(configuration: .default, delegate: self, delegateQueue: delegateQueue)
+        webSocketTask = urlSession.webSocketTask(with: url)
         
-        let tlsOptions = NWProtocolTLS.Options()
-        sec_protocol_options_set_verify_block(
-            tlsOptions.securityProtocolOptions,
-            {
-                (sec_protocol_metadata, sec_trust, sec_protocol_verify_complete) in
-                
-                let trust = sec_trust_copy_ref(sec_trust).takeRetainedValue()
-                
-                let pinner = FoundationSecurity()
-                
-                pinner.evaluateTrust(trust: trust, domain: host, completion:
-                {
-                    (state) in
-                    
-                    switch state
-                    {
-                    case .success:
-                        sec_protocol_verify_complete(true)
-                    case .failed(_):
-                        sec_protocol_verify_complete(false)
-                    }
-                })
-            }, queue
+        if autoConnect
+        {
+            connect()
+        }
+    }
+    
+    func urlSession(
+        _ session:                    URLSession,
+        webSocketTask:                URLSessionWebSocketTask,
+        didOpenWithProtocol protocol: String?
+    ) {
+        delegate?.onConnected(connection: self)
+    }
+    
+    func urlSession(
+        _ session:              URLSession,
+        webSocketTask:          URLSessionWebSocketTask,
+        didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
+        reason:                 Data?
+    ) {
+        delegate?.onDisconnected(connection: self, error: nil)
+    }
+    
+    func connect()
+    {
+        webSocketTask.resume()
+        try? initiateWebSocket()
+        listen()
+    }
+    
+    internal func initiateWebSocket() throws
+    {
+        let dir = try? FileManager.default.url(for: .sharedPublicDirectory,
+                                               in: .userDomainMask,
+                                               appropriateFor: nil,
+                                               create: true
         )
         
-        let endpoint = NWEndpoint.hostPort(host: "api.bitfinex.com", port: 443)
+        var apiKey    = ""
+        var apiSecret = ""
         
-        let parameters = NWParameters(tls: tlsOptions, tcp: options)
-        let conn = NWConnection(to: endpoint, using: parameters)
-        self.connection = conn
+        if let fileUrl = dir?.appendingPathComponent("").appendingPathExtension("bitfinex")
+        {
+            guard FileManager.default.fileExists(atPath: fileUrl.path)
+                else
+            {
+                preconditionFailure("File expected at \(fileUrl.absoluteString) is missing")
+            }
+
+            guard let filePointer: UnsafeMutablePointer<FILE> = fopen(fileUrl.path, "r")
+                else
+            {
+                preconditionFailure("Could not open file at \(fileUrl.absoluteString)")
+            }
+
+            var lineByteArrayPointer: UnsafeMutablePointer<CChar>? = nil
+            var lineCap: Int = 0
+
+            getline(&lineByteArrayPointer, &lineCap, filePointer)
+            apiKey = String(String(cString:lineByteArrayPointer!).dropLast())
+            
+            getline(&lineByteArrayPointer, &lineCap, filePointer)
+            apiSecret = String(String(cString:lineByteArrayPointer!).dropLast())
+            
+            fclose(filePointer)
+        }
+    
+        let authNonce   = NonceProvider.sharedInstanse.nonce
+        let authPayload = "AUTH\(authNonce)"
         
-        startConnection()
+        let authenticationKey  = SymmetricKey(data: apiSecret.data(using: .ascii)!)
+        let authenticationCode = HMAC<SHA384>.authenticationCode(for: authPayload.data(using: .ascii)!,
+                                                                 using: authenticationKey
+        )
+        
+        let authSig = authenticationCode.compactMap { String(format: "%02h", $0) }.joined()
+        
+        let payload: [String : Any] =
+        [
+            "event":       "auth",
+            "apiKey" :     apiKey,
+            "authSig":     authSig,
+            "authPayload": authPayload,
+            "authNonce":   authNonce
+        ]
+
+        let data = try JSONSerialization.data(withJSONObject: payload, options: .fragmentsAllowed)
+        
+        send(data: data)
     }
     
-    // Handle an inbound connection when the user receives a game request.
-    init(connection: NWConnection, delegate: BitfinexConnectionDelegate)
+    func send(text: String)
     {
-        self.delegate            = delegate
-        self.connection          = connection
-        self.initiatedConnection = false
-
-        startConnection()
-    }
-
-    /**
-        Handle starting the peer-to-peer connection for outbound(client) connections.
-
-        - returns: A new BitfinexConnection instance
-    */
-    func startConnection()
-    {
-        guard let connection = connection
-            else
-        {
-            return
-        }
-
-        connection.stateUpdateHandler = { newState in
-            switch newState
-            {
-            case .setup:
-                print("setup")
-            case .ready:
-                print("\(connection) established")
-                
-                if !self.initiatedConnection
-                {
-                    self.initiatedConnection = true
-                }
-                
-                // When the connection is ready, start receiving messages.
-                self.receiveNextMessage()
-
-                // Notify your delegate that the connection is ready.
-                if let delegate = self.delegate
-                {
-                    delegate.connectionReady()
-                }
-                
-            case .failed(let error):
-                print("\(connection) failed with \(error)")
-
-                // Cancel the connection upon a failure.
-                connection.cancel()
-
-                // Notify your delegate that the connection failed.
-                if let delegate = self.delegate
-                {
-                    delegate.connectionFailed()
-                }
-            default:
-                break
-            }
-        }
+        let textMessage = URLSessionWebSocketTask.Message.string(text)
         
-        connection.start(queue: .main)
+        webSocketTask.send(textMessage)
+        {
+            [weak self] error in
+            
+            guard let self = self else { return }
+            
+            if let error = error
+            {
+                self.delegate?.onError(connection: self, error: error)
+            }
+        }
     }
-
-    // Receive a message, deliver it to your delegate, and continue receiving more messages.
-    func receiveNextMessage()
+    
+    func send(data: Data)
     {
-        guard let connection = connection
-            else
+        let dataMessage = URLSessionWebSocketTask.Message.data(data)
+        
+        webSocketTask.send(dataMessage)
         {
-            return
-        }
-
-        connection.receiveMessage
-        {
-            (content, context, isComplete, error) in
+            [weak self] error in
             
-            if let content = content,
-                let message = String(data: content, encoding: .utf8),
-                let delegate = self.delegate
-            {
-                delegate.receivedMessage(content: content,
-                                         message: message)
-            }
+            guard let self = self else { return }
             
-            if error == nil
+            if let error = error
             {
-                // Continue to receive more messages until you receive and error.
-                self.receiveNextMessage()
+                self.delegate?.onError(connection: self, error: error)
             }
         }
     }
-
+    
+    func listen()
+    {
+        webSocketTask.receive
+        {
+            [weak self] result in
+            
+            guard let self = self else { return }
+            
+            switch result
+            {
+            case .failure(let error):
+                self.delegate?.onError(connection: self, error: error)
+            
+            case .success(let message):
+                switch message
+                {
+                case .string(let text):
+                    self.delegate?.onMessage(connection: self, text: text)
+                
+                case .data(let data):
+                    self.delegate?.onMessage(connection: self, data: data)
+                
+                @unknown default:
+                    fatalError()
+                }
+            }
+            self.listen()
+        }
+    }
+    
+    func ping(with frequency: TimeInterval = 25.0)
+    {
+        pingTimer = Timer.scheduledTimer(withTimeInterval: frequency, repeats: true)
+        {
+            [weak self] _ in
+            
+            guard let self = self else { return }
+            
+            self.webSocketTask.sendPing
+            {
+                error in
+                
+                if let error = error
+                {
+                    self.delegate?.onError(connection: self, error: error)
+                }
+            }
+        }
+    }
+    
+    func disconnect()
+    {
+        webSocketTask.cancel(with: .normalClosure, reason: nil)
+        pingTimer?.invalidate()
+    }
 }
