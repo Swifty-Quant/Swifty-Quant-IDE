@@ -104,7 +104,7 @@ class BitfinexConnection : NSObject, WebSocketConnection, URLSessionWebSocketDel
                                                                  using: authenticationKey
         )
         
-        let authSig = authenticationCode.compactMap { String(format: "%02h", $0) }.joined()
+        let authSig = authenticationCode.compactMap { String(format: "%02hhx", $0) }.joined()
         
         let payload: [String : Any] =
         [
