@@ -18,7 +18,7 @@ final class BitfinexViewController : NSViewController
     
     override func viewDidLoad()
     {   
-        let connection = BitfinexConnection(url: URL(string: "wss://api.bitfinex.com/ws/2/")!)
+        let connection = BitfinexConnection(url: URL(string: "wss://api.bitfinex.com/ws/2/trades/tBTCUSD/hist/")!)
         connection.connect()
     }
     
